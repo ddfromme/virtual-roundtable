@@ -24,7 +24,7 @@
       </div>
     </header>
 
-    <!-- Sign-In Screen (Shown before authentication) -->
+    <!-- Sign-In Screen -->
     <section id="auth-section" class="bg-white p-8 rounded-xl shadow-md border border-slate-200 text-center space-y-4">
       <h2 class="text-2xl font-bold text-slate-900">School Sign-In Required</h2>
       <p class="text-slate-600 max-w-md mx-auto">Please sign in with your official school Google account to access the discussion board.</p>
@@ -34,7 +34,7 @@
       </button>
     </section>
 
-    <!-- Main Forum Workspace (Hidden until logged in) -->
+    <!-- Main Forum Workspace -->
     <main id="app-section" class="hidden space-y-8">
       
       <!-- User Profile Bar & Period Selector -->
@@ -44,7 +44,7 @@
           <button id="logout-btn" class="text-xs text-red-600 hover:underline">Sign Out</button>
         </div>
 
-        <!-- Class Period Selector (1st - 8th) -->
+        <!-- Class Period Selector -->
         <div class="flex items-center gap-2">
           <label for="period-select" class="text-sm font-bold text-slate-700">Class Period:</label>
           <select id="period-select" class="p-2 border border-slate-300 rounded-lg bg-white font-semibold text-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:outline-none shadow-sm">
@@ -122,13 +122,13 @@
     </div>
   </div>
 
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-  import { getDatabase, ref, push, onValue, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-  import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, push, onValue, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
-  // 1. Your Firebase Configuration
- // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+    // IMPORTANT: Make sure to replace values in firebaseConfig with your real project keys from Firebase Console
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: "AIzaSyBPXtwEmQIMKF_O7JOAs6kSZ1vMPTlJEUs",
   authDomain: "virtual-roundtable.firebaseapp.com",
@@ -140,273 +140,272 @@ const firebaseConfig = {
   measurementId: "G-7GD69G60BZ"
 };
 
-  const ALLOWED_DOMAINS = ["hoover.k12.al.us" , "hcs-students.net"]; // Add allowed domains here
-  const TEACHER_PIN = "7325";             // Change to your secret PIN
+    const ALLOWED_DOMAINS = ["hoover.k12.al.us" , "hcs-students.net"]; // Put your allowed domains here (e.g. ["school.org", "student.school.org"])
+    const TEACHER_PIN = "7325";
 
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
-  const auth = getAuth(app);
-  const provider = new GoogleAuthProvider();
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const auth = getAuth(app);
+    const provider = new GoogleAuthProvider();
 
-  let currentUser = null;
-  let currentPeriod = "1";
-  let globalPostsData = {};
-  let isTeacher = false; // Tracks if Teacher Mode is unlocked
+    let currentUser = null;
+    let currentPeriod = "1";
+    let globalPostsData = {};
+    let isTeacher = false;
 
-  function getOrdinal(n) {
-    const s = ["th", "st", "nd", "rd"];
-    const v = n % 100;
-    return n + (s[(v - 20) % 10] || s[v] || s[0]);
-  }
-
-  const authSection = document.getElementById('auth-section');
-  const appSection = document.getElementById('app-section');
-  const loginBtn = document.getElementById('google-login-btn');
-  const logoutBtn = document.getElementById('logout-btn');
-  const userDisplayName = document.getElementById('user-display-name');
-  const periodSelect = document.getElementById('period-select');
-
-  // Auth Handlers
-  loginBtn.addEventListener('click', () => {
-    signInWithPopup(auth, provider).catch(err => alert(`Sign-in Error [${err.code}]: ${err.message}`));
-  });
-
-  logoutBtn.addEventListener('click', () => signOut(auth));
-
-  onAuthStateChanged(auth, (user) => {
-    if (user) {
-      const isAllowed = ALLOWED_DOMAINS.length === 0 || ALLOWED_DOMAINS.some(domain => user.email.endsWith("@" + domain));
-      if (!isAllowed) {
-        alert(`Access restricted! Your domain (@${user.email.split('@')[1]}) is not authorized.`);
-        signOut(auth);
-        return;
-      }
-      currentUser = user;
-      userDisplayName.textContent = `${user.displayName} (${user.email})`;
-      authSection.classList.add('hidden');
-      appSection.classList.remove('hidden');
-      loadPeriodData(currentPeriod);
-    } else {
-      currentUser = null;
-      authSection.classList.remove('hidden');
-      appSection.classList.add('hidden');
+    function getOrdinal(n) {
+      const s = ["th", "st", "nd", "rd"];
+      const v = n % 100;
+      return n + (s[(v - 20) % 10] || s[v] || s[0]);
     }
-  });
 
-  periodSelect.addEventListener('change', (e) => {
-    currentPeriod = e.target.value;
-    loadPeriodData(currentPeriod);
-  });
+    const authSection = document.getElementById('auth-section');
+    const appSection = document.getElementById('app-section');
+    const loginBtn = document.getElementById('google-login-btn');
+    const logoutBtn = document.getElementById('logout-btn');
+    const userDisplayName = document.getElementById('user-display-name');
+    const periodSelect = document.getElementById('period-select');
 
-// Expanded Adjectives List (30 options)
-const adjectives = [
-  "Analytical", "Curious", "Socratic", "Reflective", "Logical",
-  "Insightful", "Empirical", "Eloquent", "Poetic", "Philosophical",
-  "Expressive", "Creative", "Articulate", "Brilliant", "Classic",
-  "Dramatic", "Enlightened", "Imagative", "Intrepid", "Keen",
-  "Lyrical", "Mindful", "Narrative", "Observant", "Profound",
-  "Resonant", "Scholarly", "Thoughtful", "Vivid", "Witty"
-];
+    loginBtn.addEventListener('click', () => {
+      signInWithPopup(auth, provider).catch(err => alert(`Sign-in Error [${err.code}]: ${err.message}`));
+    });
 
-// Expanded Famous Authors List (30 options)
-const authors = [
-  "Shakespeare", "Austen", "Hemingway", "Orwell", "Tolkien",
-  "Dickens", "Woolf", "Poe", "Dostoevsky", "Kafka",
-  "Morrison", "Shelley", "Steinbeck", "Fitzgerald", "Brontë",
-  "Twain", "Baldwin", "Plath", "Márquez", "Hugo",
-  "Angelou", "Christie", "Vonnegut", "Asimov", "Wilde",
-  "Faulkner", "Dumas", "Alcott", "Hurston", "Tolstoy"
-];
+    logoutBtn.addEventListener('click', () => signOut(auth));
 
-// Generates a consistent hash integer from a user's unique ID (UID)
-function hashCode(str) {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = str.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return Math.abs(hash);
-}
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        const isAllowed = ALLOWED_DOMAINS.length === 0 || ALLOWED_DOMAINS.some(domain => user.email.endsWith("@" + domain));
+        if (!isAllowed) {
+          alert(`Access restricted! Your email (@${user.email.split('@')[1]}) is not authorized.`);
+          signOut(auth);
+          return;
+        }
+        currentUser = user;
+        userDisplayName.textContent = `${user.displayName} (${user.email})`;
+        authSection.classList.add('hidden');
+        appSection.classList.remove('hidden');
+        loadPeriodData(currentPeriod);
+      } else {
+        currentUser = null;
+        authSection.classList.remove('hidden');
+        appSection.classList.add('hidden');
+      }
+    });
 
-// Always returns the exact same Author Alias for a given user across sessions
-function getUserAlias(user) {
-  if (!user) return "Anonymous Author";
-  
-  // Use user.uid for consistent hashing
-  const hash = hashCode(user.uid);
-  
-  // Modulo by 30 ensures an even distribution across all 30 options
-  const adj = adjectives[hash % adjectives.length];
-  const author = authors[hash % authors.length];
-  
-  return `${adj} ${author}`;
-}
+    periodSelect.addEventListener('change', (e) => {
+      currentPeriod = e.target.value;
+      loadPeriodData(currentPeriod);
+    });
 
-      const postsArray = Object.entries(data).reverse();
+    // 30 Adjectives & 30 Famous Authors
+    const adjectives = [
+      "Analytical", "Curious", "Socratic", "Reflective", "Logical",
+      "Insightful", "Empirical", "Eloquent", "Poetic", "Philosophical",
+      "Expressive", "Creative", "Articulate", "Brilliant", "Classic",
+      "Dramatic", "Enlightened", "Imaginative", "Intrepid", "Keen",
+      "Lyrical", "Mindful", "Narrative", "Observant", "Profound",
+      "Resonant", "Scholarly", "Thoughtful", "Vivid", "Witty"
+    ];
 
-      postsArray.forEach(([postId, post]) => {
-        const card = document.createElement('div');
-        card.className = "bg-white p-6 rounded-xl shadow-md border border-slate-200 space-y-4";
+    const authors = [
+      "Shakespeare", "Austen", "Hemingway", "Orwell", "Tolkien",
+      "Dickens", "Woolf", "Poe", "Dostoevsky", "Kafka",
+      "Morrison", "Shelley", "Steinbeck", "Fitzgerald", "Brontë",
+      "Twain", "Baldwin", "Plath", "Márquez", "Hugo",
+      "Angelou", "Christie", "Vonnegut", "Asimov", "Wilde",
+      "Faulkner", "Dumas", "Alcott", "Hurston", "Tolstoy"
+    ];
 
-        let repliesHTML = '';
-        if (post.replies) {
-          Object.values(post.replies).forEach(reply => {
-            repliesHTML += `
-              <div class="bg-slate-50 p-3.5 rounded-lg border-l-4 border-indigo-500 text-sm space-y-1">
-                <div class="font-semibold text-indigo-700">💬 Peer Feedback from ${escapeHtml(reply.alias)}:</div>
-                <div class="text-slate-700">${escapeHtml(reply.comment)}</div>
-              </div>
-            `;
-          });
+    function hashCode(str) {
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) {
+        hash = str.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      return Math.abs(hash);
+    }
+
+    function getUserAlias(user) {
+      if (!user) return "Anonymous Author";
+      const hash = hashCode(user.uid);
+      const adj = adjectives[hash % adjectives.length];
+      const author = authors[hash % authors.length];
+      return `${adj} ${author}`;
+    }
+
+    function loadPeriodData(period) {
+      const periodName = `${getOrdinal(period)} Period`;
+      document.getElementById('feed-title').textContent = `Live Feed — ${periodName}`;
+      const periodRef = ref(db, `periods/period_${period}/posts`);
+
+      onValue(periodRef, (snapshot) => {
+        const container = document.getElementById('posts-container');
+        container.innerHTML = '';
+
+        const data = snapshot.val();
+        globalPostsData = data || {};
+
+        if (!data) {
+          container.innerHTML = `<div class="text-center py-8 text-slate-400">No posts in ${periodName} yet.</div>`;
+          return;
         }
 
-        // Add Delete Button if Teacher PIN was successfully entered
-        const deleteBtnHTML = isTeacher ? `
-          <button class="delete-post-btn text-xs bg-red-100 hover:bg-red-200 text-red-600 font-bold px-2 py-1 rounded transition-colors ml-auto" data-post-id="${postId}">
-            🗑️ Delete
-          </button>
-        ` : '';
+        const postsArray = Object.entries(data).reverse();
 
-        card.innerHTML = `
-          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-            <span class="font-bold text-slate-900 flex items-center gap-2">
-              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-              ${escapeHtml(post.alias)}
-            </span>
-            <div class="flex items-center gap-3">
-              <span class="text-xs text-slate-400">${new Date(post.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-              ${deleteBtnHTML}
+        postsArray.forEach(([postId, post]) => {
+          const card = document.createElement('div');
+          card.className = "bg-white p-6 rounded-xl shadow-md border border-slate-200 space-y-4";
+
+          let repliesHTML = '';
+          if (post.replies) {
+            Object.values(post.replies).forEach(reply => {
+              repliesHTML += `
+                <div class="bg-slate-50 p-3.5 rounded-lg border-l-4 border-indigo-500 text-sm space-y-1">
+                  <div class="font-semibold text-indigo-700">💬 Peer Feedback from ${escapeHtml(reply.alias)}:</div>
+                  <div class="text-slate-700">${escapeHtml(reply.comment)}</div>
+                </div>
+              `;
+            });
+          }
+
+          const deleteBtnHTML = isTeacher ? `
+            <button class="delete-post-btn text-xs bg-red-100 hover:bg-red-200 text-red-600 font-bold px-2 py-1 rounded transition-colors ml-auto" data-post-id="${postId}">
+              🗑️ Delete
+            </button>
+          ` : '';
+
+          card.innerHTML = `
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+              <span class="font-bold text-slate-900 flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                ${escapeHtml(post.alias)}
+              </span>
+              <div class="flex items-center gap-3">
+                <span class="text-xs text-slate-400">${new Date(post.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                ${deleteBtnHTML}
+              </div>
             </div>
-          </div>
-          
-          <p class="text-slate-700 whitespace-pre-wrap">${escapeHtml(post.content)}</p>
+            
+            <p class="text-slate-700 whitespace-pre-wrap">${escapeHtml(post.content)}</p>
 
-          <div class="space-y-3 pt-2">${repliesHTML}</div>
+            <div class="space-y-3 pt-2">${repliesHTML}</div>
 
-          <form class="reply-form flex gap-2 pt-2" data-post-id="${postId}">
-            <input type="text" placeholder="Reply anonymously to ${escapeHtml(post.alias)}..." required class="reply-input flex-1 p-2 border border-slate-200 text-sm rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none">
-            <button type="submit" class="bg-slate-800 hover:bg-slate-900 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">Reply</button>
-          </form>
-        `;
+            <form class="reply-form flex gap-2 pt-2" data-post-id="${postId}">
+              <input type="text" placeholder="Reply anonymously to ${escapeHtml(post.alias)}..." required class="reply-input flex-1 p-2 border border-slate-200 text-sm rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+              <button type="submit" class="bg-slate-800 hover:bg-slate-900 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">Reply</button>
+            </form>
+          `;
 
-        container.appendChild(card);
-      });
-
-      // Bind Reply Listeners
-      document.querySelectorAll('.reply-form').forEach(form => {
-        form.addEventListener('submit', handlePeerReply);
-      });
-
-      // Bind Delete Listeners for Teacher Mode
-      if (isTeacher) {
-        document.querySelectorAll('.delete-post-btn').forEach(btn => {
-          btn.addEventListener('click', (e) => {
-            const postId = e.currentTarget.getAttribute('data-post-id');
-            if (confirm("Are you sure you want to delete this post?")) {
-              const postRef = ref(db, `periods/period_${currentPeriod}/posts/${postId}`);
-              remove(postRef).catch(err => alert("Deletion failed: " + err.message));
-            }
-          });
+          container.appendChild(card);
         });
+
+        document.querySelectorAll('.reply-form').forEach(form => {
+          form.addEventListener('submit', handlePeerReply);
+        });
+
+        if (isTeacher) {
+          document.querySelectorAll('.delete-post-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+              const postId = e.currentTarget.getAttribute('data-post-id');
+              if (confirm("Are you sure you want to delete this post?")) {
+                const postRef = ref(db, `periods/period_${currentPeriod}/posts/${postId}`);
+                remove(postRef).catch(err => alert("Deletion failed: " + err.message));
+              }
+            });
+          });
+        }
+      });
+    }
+
+    const postForm = document.getElementById('post-form');
+    postForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const content = document.getElementById('post-content').value.trim();
+      if (!content || !currentUser) return;
+
+      const postsRef = ref(db, `periods/period_${currentPeriod}/posts`);
+
+      push(postsRef, {
+        realName: currentUser.displayName,
+        email: currentUser.email,
+        alias: getUserAlias(currentUser),
+        content: content,
+        timestamp: Date.now(),
+        replies: {}
+      }).then(() => {
+        postForm.reset();
+      }).catch(err => alert("Error posting: " + err.message));
+    });
+
+    function handlePeerReply(e) {
+      e.preventDefault();
+      const form = e.target;
+      const postId = form.getAttribute('data-post-id');
+      const input = form.querySelector('.reply-input');
+      const commentText = input.value.trim();
+
+      if (!commentText || !currentUser) return;
+
+      const repliesRef = ref(db, `periods/period_${currentPeriod}/posts/${postId}/replies`);
+
+      push(repliesRef, {
+        alias: getUserAlias(currentUser),
+        realName: currentUser.displayName,
+        comment: commentText,
+        timestamp: Date.now()
+      }).then(() => {
+        input.value = '';
+      }).catch(err => alert("Error posting reply: " + err.message));
+    }
+
+    const modal = document.getElementById('teacher-modal');
+    const openBtn = document.getElementById('open-teacher-btn');
+    const closeBtn = document.getElementById('close-modal-btn');
+    const unlockBtn = document.getElementById('unlock-btn');
+    const pinInput = document.getElementById('teacher-pin');
+    const pinView = document.getElementById('pin-view');
+    const rosterView = document.getElementById('roster-view');
+    const rosterTbody = document.getElementById('roster-tbody');
+
+    openBtn.addEventListener('click', () => modal.classList.remove('hidden'));
+    closeBtn.addEventListener('click', () => {
+      modal.classList.add('hidden');
+      pinInput.value = '';
+      pinView.classList.remove('hidden');
+      rosterView.classList.add('hidden');
+    });
+
+    unlockBtn.addEventListener('click', () => {
+      if (pinInput.value === TEACHER_PIN) {
+        isTeacher = true;
+        pinView.classList.add('hidden');
+        rosterView.classList.remove('hidden');
+        renderRoster();
+        loadPeriodData(currentPeriod);
+      } else {
+        alert("Incorrect PIN.");
       }
     });
-  }
 
-  // Create New Thread
-  const postForm = document.getElementById('post-form');
-  postForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const content = document.getElementById('post-content').value.trim();
-    if (!content || !currentUser) return;
+    function renderRoster() {
+      document.getElementById('roster-period-label').textContent = `Roster for ${getOrdinal(currentPeriod)} Period`;
+      rosterTbody.innerHTML = '';
+      if (!globalPostsData) return;
 
-    const postsRef = ref(db, `periods/period_${currentPeriod}/posts`);
-
-push(postsRef, {
-  realName: currentUser.displayName,
-  email: currentUser.email,
-  alias: getUserAlias(currentUser), // <--- Uses author alias consistently
-  content: content,
-  timestamp: Date.now(),
-  replies: {}
-})
-    }).then(() => {
-      postForm.reset();
-    }).catch(err => alert("Error posting: " + err.message));
-  });
-
-  // Reply Handler
-  function handlePeerReply(e) {
-    e.preventDefault();
-    const form = e.target;
-    const postId = form.getAttribute('data-post-id');
-    const input = form.querySelector('.reply-input');
-    const commentText = input.value.trim();
-
-    if (!commentText || !currentUser) return;
-
-    const repliesRef = ref(db, `periods/period_${currentPeriod}/posts/${postId}/replies`);
-
-push(repliesRef, {
-  alias: getUserAlias(currentUser), // <--- Matches their main post author alias
-  realName: currentUser.displayName,
-  comment: commentText,
-  timestamp: Date.now()
-})
-    }).then(() => {
-      input.value = '';
-    }).catch(err => alert("Error posting reply: " + err.message));
-  }
-
-  // Teacher Admin Modal Logic
-  const modal = document.getElementById('teacher-modal');
-  const openBtn = document.getElementById('open-teacher-btn');
-  const closeBtn = document.getElementById('close-modal-btn');
-  const unlockBtn = document.getElementById('unlock-btn');
-  const pinInput = document.getElementById('teacher-pin');
-  const pinView = document.getElementById('pin-view');
-  const rosterView = document.getElementById('roster-view');
-  const rosterTbody = document.getElementById('roster-tbody');
-
-  openBtn.addEventListener('click', () => modal.classList.remove('hidden'));
-  closeBtn.addEventListener('click', () => {
-    modal.classList.add('hidden');
-    pinInput.value = '';
-    pinView.classList.remove('hidden');
-    rosterView.classList.add('hidden');
-  });
-
-  // Unlock Teacher Mode
-  unlockBtn.addEventListener('click', () => {
-    if (pinInput.value === TEACHER_PIN) {
-      isTeacher = true; // Sets Teacher Mode active
-      pinView.classList.add('hidden');
-      rosterView.classList.remove('hidden');
-      renderRoster();
-      loadPeriodData(currentPeriod); // Immediately refreshes feed to display 🗑️ Delete buttons
-    } else {
-      alert("Incorrect PIN.");
+      Object.values(globalPostsData).forEach(post => {
+        const row = document.createElement('tr');
+        row.className = "hover:bg-slate-50";
+        row.innerHTML = `
+          <td class="px-4 py-2.5 font-semibold text-indigo-600">${escapeHtml(post.alias)}</td>
+          <td class="px-4 py-2.5 text-slate-900">${escapeHtml(post.realName)}</td>
+          <td class="px-4 py-2.5 text-slate-500">${escapeHtml(post.email || 'N/A')}</td>
+        `;
+        rosterTbody.appendChild(row);
+      });
     }
-  });
 
-  function renderRoster() {
-    document.getElementById('roster-period-label').textContent = `Roster for ${getOrdinal(currentPeriod)} Period`;
-    rosterTbody.innerHTML = '';
-    if (!globalPostsData) return;
-
-    Object.values(globalPostsData).forEach(post => {
-      const row = document.createElement('tr');
-      row.className = "hover:bg-slate-50";
-      row.innerHTML = `
-        <td class="px-4 py-2.5 font-semibold text-indigo-600">${escapeHtml(post.alias)}</td>
-        <td class="px-4 py-2.5 text-slate-900">${escapeHtml(post.realName)}</td>
-        <td class="px-4 py-2.5 text-slate-500">${escapeHtml(post.email || 'N/A')}</td>
-      `;
-      rosterTbody.appendChild(row);
-    });
-  }
-
-  function escapeHtml(str) {
-    return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-  }
-</script>
+    function escapeHtml(str) {
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+  </script>
 </body>
 </html>
