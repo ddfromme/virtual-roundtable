@@ -198,32 +198,48 @@ const firebaseConfig = {
     loadPeriodData(currentPeriod);
   });
 
-  const adjectives = ["Analytical", "Curious", "Socratic", "Reflective", "Logical", "Insightful", "Empirical"];
-  const figures = ["Archimedes", "Curie", "Galileo", "Hypatia", "Aristotle", "Turing", "Newton", "Descartes"];
+// Expanded Adjectives List (30 options)
+const adjectives = [
+  "Analytical", "Curious", "Socratic", "Reflective", "Logical",
+  "Insightful", "Empirical", "Eloquent", "Poetic", "Philosophical",
+  "Expressive", "Creative", "Articulate", "Brilliant", "Classic",
+  "Dramatic", "Enlightened", "Imagative", "Intrepid", "Keen",
+  "Lyrical", "Mindful", "Narrative", "Observant", "Profound",
+  "Resonant", "Scholarly", "Thoughtful", "Vivid", "Witty"
+];
 
-  function generateAlias() {
-    const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
-    const fig = figures[Math.floor(Math.random() * figures.length)];
-    return `${adj} ${fig}`;
+// Expanded Famous Authors List (30 options)
+const authors = [
+  "Shakespeare", "Austen", "Hemingway", "Orwell", "Tolkien",
+  "Dickens", "Woolf", "Poe", "Dostoevsky", "Kafka",
+  "Morrison", "Shelley", "Steinbeck", "Fitzgerald", "Brontë",
+  "Twain", "Baldwin", "Plath", "Márquez", "Hugo",
+  "Angelou", "Christie", "Vonnegut", "Asimov", "Wilde",
+  "Faulkner", "Dumas", "Alcott", "Hurston", "Tolstoy"
+];
+
+// Generates a consistent hash integer from a user's unique ID (UID)
+function hashCode(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
   }
+  return Math.abs(hash);
+}
 
-  // Load Realtime Posts Feed
-  function loadPeriodData(period) {
-    const periodName = `${getOrdinal(period)} Period`;
-    document.getElementById('feed-title').textContent = `Live Feed — ${periodName}`;
-    const periodRef = ref(db, `periods/period_${period}/posts`);
-
-    onValue(periodRef, (snapshot) => {
-      const container = document.getElementById('posts-container');
-      container.innerHTML = '';
-
-      const data = snapshot.val();
-      globalPostsData = data || {};
-
-      if (!data) {
-        container.innerHTML = `<div class="text-center py-8 text-slate-400">No posts in ${periodName} yet.</div>`;
-        return;
-      }
+// Always returns the exact same Author Alias for a given user across sessions
+function getUserAlias(user) {
+  if (!user) return "Anonymous Author";
+  
+  // Use user.uid for consistent hashing
+  const hash = hashCode(user.uid);
+  
+  // Modulo by 30 ensures an even distribution across all 30 options
+  const adj = adjectives[hash % adjectives.length];
+  const author = authors[hash % authors.length];
+  
+  return `${adj} ${author}`;
+}
 
       const postsArray = Object.entries(data).reverse();
 
@@ -304,13 +320,14 @@ const firebaseConfig = {
 
     const postsRef = ref(db, `periods/period_${currentPeriod}/posts`);
 
-    push(postsRef, {
-      realName: currentUser.displayName,
-      email: currentUser.email,
-      alias: generateAlias(),
-      content: content,
-      timestamp: Date.now(),
-      replies: {}
+push(postsRef, {
+  realName: currentUser.displayName,
+  email: currentUser.email,
+  alias: getUserAlias(currentUser), // <--- Uses author alias consistently
+  content: content,
+  timestamp: Date.now(),
+  replies: {}
+})
     }).then(() => {
       postForm.reset();
     }).catch(err => alert("Error posting: " + err.message));
@@ -328,11 +345,12 @@ const firebaseConfig = {
 
     const repliesRef = ref(db, `periods/period_${currentPeriod}/posts/${postId}/replies`);
 
-    push(repliesRef, {
-      alias: generateAlias(),
-      realName: currentUser.displayName,
-      comment: commentText,
-      timestamp: Date.now()
+push(repliesRef, {
+  alias: getUserAlias(currentUser), // <--- Matches their main post author alias
+  realName: currentUser.displayName,
+  comment: commentText,
+  timestamp: Date.now()
+})
     }).then(() => {
       input.value = '';
     }).catch(err => alert("Error posting reply: " + err.message));
