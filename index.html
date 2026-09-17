@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Classroom Discussion Board</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen p-4 sm:p-8">
+
+  <div class="max-w-4xl mx-auto space-y-8">
+    
+    <header class="text-center space-y-2">
+      <h1 class="text-3xl font-extrabold text-slate-900">Classroom Roundtable</h1>
+      <p class="text-slate-600">Share your thoughts anonymously. Be constructive and respectful in peer reviews.</p>
+    </header>
+
+    <!-- Create Post Form -->
+    <section class="bg-white p-6 rounded-xl shadow-md border border-slate-200">
+      <h2 class="text-xl font-bold mb-4 text-indigo-600">Create New Discussion Thread</h2>
+      <form id="post-form" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Your Real Name <span class="text-xs text-slate-400">(Visible ONLY to your teacher)</span></label>
+          <input type="text" id="author-real-name" required placeholder="Jane Doe" class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Your Discussion Response</label>
+          <textarea id="post-content" rows="4" required placeholder="Type your initial response here..." class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"></textarea>
+        </div>
+        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-lg transition-colors shadow">Post Anonymously</button>
+      </form>
+    </section>
+
+    <!-- Live Forum Feed -->
+    <section class="space-y-4">
+      <h2 class="text-2xl font-bold text-slate-900">Live Discussion Feed</h2>
+      <div id="posts-container" class="space-y-6">
+        <div class="text-center py-8 text-slate-400" id="loading-state">Loading discussion threads...</div>
+      </div>
+    </section>
+
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+   // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyBPXtwEmQIMKF_O7JOAs6kSZ1vMPTlJEUs",
+  authDomain: "virtual-roundtable.firebaseapp.com",
+  databaseURL: "https://virtual-roundtable-default-rtdb.firebaseio.com",
+  projectId: "virtual-roundtable",
+  storageBucket: "virtual-roundtable.firebasestorage.app",
+  messagingSenderId: "708274108711",
+  appId: "1:708274108711:web:0a4aed1f460cfb0774d102",
+  measurementId: "G-7GD69G60BZ"
+};
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const postsRef = ref(db, 'forum_posts');
+
+    const adjectives = ["Analytical", "Curious", "Socratic", "Reflective", "Logical", "Insightful", "Empirical"];
+    const figures = ["Archimedes", "Curie", "Galileo", "Hypatia", "Aristotle", "Turing", "Newton", "Descartes"];
+
+    function generateAlias() {
+      const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+      const fig = figures[Math.floor(Math.random() * figures.length)];
+      return `${adj} ${fig}`;
+    }
+
+    const postForm = document.getElementById('post-form');
+    postForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      
+      const realName = document.getElementById('author-real-name').value.trim();
+      const content = document.getElementById('post-content').value.trim();
+      const alias = generateAlias();
+
+      if (!realName || !content) return;
+
+      push(postsRef, {
+        realName: realName,
+        alias: alias,
+        content: content,
+        timestamp: Date.now(),
+        replies: {}
+      }).then(() => {
+        postForm.reset();
+      }).catch(err => alert("Error posting: " + err.message));
+    });
+
+    onValue(postsRef, (snapshot) => {
+      const container = document.getElementById('posts-container');
+      container.innerHTML = '';
+
+      const data = snapshot.val();
+      if (!data) {
+        container.innerHTML = `<div class="text-center py-8 text-slate-400">No discussion posts yet. Be the first to post!</div>`;
+        return;
+      }
+
+      const postsArray = Object.entries(data).reverse();
+
+      postsArray.forEach(([postId, post]) => {
+        const card = document.createElement('div');
+        card.className = "bg-white p-6 rounded-xl shadow-md border border-slate-200 space-y-4";
+
+        let repliesHTML = '';
+        if (post.replies) {
+          Object.values(post.replies).forEach(reply => {
+            repliesHTML += `
+              <div class="bg-slate-50 p-3.5 rounded-lg border-l-4 border-indigo-500 text-sm space-y-1">
+                <div class="font-semibold text-indigo-700">💬 Peer Feedback from ${escapeHtml(reply.alias)}:</div>
+                <div class="text-slate-700">${escapeHtml(reply.comment)}</div>
+              </div>
+            `;
+          });
+        }
+
+        card.innerHTML = `
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <span class="font-bold text-slate-900 flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+              ${escapeHtml(post.alias)}
+            </span>
+            <span class="text-xs text-slate-400">${new Date(post.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+          </div>
+          
+          <p class="text-slate-700 whitespace-pre-wrap">${escapeHtml(post.content)}</p>
+
+          <div class="space-y-3 pt-2">
+            ${repliesHTML}
+          </div>
+
+          <form class="reply-form flex gap-2 pt-2" data-post-id="${postId}">
+            <input type="text" placeholder="Reply anonymously to ${escapeHtml(post.alias)}..." required class="reply-input flex-1 p-2 border border-slate-200 text-sm rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            <button type="submit" class="bg-slate-800 hover:bg-slate-900 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">Reply</button>
+          </form>
+        `;
+
+        container.appendChild(card);
+      });
+
+      document.querySelectorAll('.reply-form').forEach(form => {
+        form.addEventListener('submit', handlePeerReply);
+      });
+    });
+
+    function handlePeerReply(e) {
+      e.preventDefault();
+      const form = e.target;
+      const postId = form.getAttribute('data-post-id');
+      const input = form.querySelector('.reply-input');
+      const commentText = input.value.trim();
+
+      if (!commentText) return;
+
+      const replyAlias = generateAlias();
+      const repliesRef = ref(db, `forum_posts/${postId}/replies`);
+
+      push(repliesRef, {
+        alias: replyAlias,
+        comment: commentText,
+        timestamp: Date.now()
+      }).then(() => {
+        input.value = '';
+      }).catch(err => alert("Error posting reply: " + err.message));
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+  </script>
+</body>
+</html>
