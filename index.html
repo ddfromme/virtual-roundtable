@@ -124,7 +124,7 @@
 
  <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { getDatabase, ref, push, onValue, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
     import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
     // 1. Paste YOUR actual Firebase config values here:
@@ -152,6 +152,7 @@ const ALLOWED_DOMAINS = ["hoover.k12.al.us", "hcs-students.net"];
     let currentUser = null;
     let currentPeriod = "1";
     let globalPostsData = {};
+    let isTeacher = false;
 
     function getOrdinal(n) {
       const s = ["th", "st", "nd", "rd"];
@@ -236,7 +237,24 @@ const ALLOWED_DOMAINS = ["hoover.k12.al.us", "hcs-students.net"];
         postsArray.forEach(([postId, post]) => {
           const card = document.createElement('div');
           card.className = "bg-white p-6 rounded-xl shadow-md border border-slate-200 space-y-4";
+// Add a delete button to the post header if logged in as teacher
+const deleteBtnHTML = isTeacher ? `
+  <button class="delete-post-btn text-xs text-red-500 hover:text-red-700 font-bold ml-2" data-post-id="${postId}">
+    🗑️ Delete Post
+  </button>
+` : '';
 
+card.innerHTML = `
+  <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+    <span class="font-bold text-slate-900 flex items-center gap-2">
+      <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+      ${escapeHtml(post.alias)}
+      ${deleteBtnHTML}
+    </span>
+    <span class="text-xs text-slate-400">${new Date(post.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+  </div>
+  ...
+`;
           let repliesHTML = '';
           if (post.replies) {
             Object.values(post.replies).forEach(reply => {
@@ -336,16 +354,27 @@ const ALLOWED_DOMAINS = ["hoover.k12.al.us", "hcs-students.net"];
       rosterView.classList.add('hidden');
     });
 
-    unlockBtn.addEventListener('click', () => {
-      if (pinInput.value === TEACHER_PIN) {
-        pinView.classList.add('hidden');
-        rosterView.classList.remove('hidden');
-        renderRoster();
-      } else {
-        alert("Incorrect PIN.");
-      }
-    });
-
+ unlockBtn.addEventListener('click', () => {
+  if (pinInput.value === TEACHER_PIN) {
+    isTeacher = true; // Enable teacher controls
+    pinView.classList.add('hidden');
+    rosterView.classList.remove('hidden');
+    renderRoster();
+    loadPeriodData(currentPeriod); // Reload feed with delete buttons visible
+  } else {
+    alert("Incorrect PIN.");
+  }
+});
+// Handle post deletions by teacher
+document.querySelectorAll('.delete-post-btn').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    const postId = e.target.getAttribute('data-post-id');
+    if (confirm("Are you sure you want to delete this post?")) {
+      const postRef = ref(db, `periods/period_${currentPeriod}/posts/${postId}`);
+      remove(postRef).catch(err => alert("Failed to delete post: " + err.message));
+    }
+  });
+});
     function renderRoster() {
       document.getElementById('roster-period-label').textContent = `Roster for ${getOrdinal(currentPeriod)} Period`;
       rosterTbody.innerHTML = '';
