@@ -128,18 +128,20 @@
   import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
   // 1. Your Firebase Configuration
-  const firebaseConfig = {
-    apiKey: "YOUR_REAL_API_KEY",
-    authDomain: "YOUR_PROJECT.firebaseapp.com",
-    databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
-    projectId: "YOUR_PROJECT",
-    storageBucket: "YOUR_PROJECT.appspot.com",
-    messagingSenderId: "123456789",
-    appId: "1:123456789:web:abcdef"
-  };
+ // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyBPXtwEmQIMKF_O7JOAs6kSZ1vMPTlJEUs",
+  authDomain: "virtual-roundtable.firebaseapp.com",
+  databaseURL: "https://virtual-roundtable-default-rtdb.firebaseio.com",
+  projectId: "virtual-roundtable",
+  storageBucket: "virtual-roundtable.firebasestorage.app",
+  messagingSenderId: "708274108711",
+  appId: "1:708274108711:web:0a4aed1f460cfb0774d102",
+  measurementId: "G-7GD69G60BZ"
+};
 
-  const ALLOWED_DOMAINS = ["school.org"]; // Add allowed domains here
-  const TEACHER_PIN = "1234";             // Change to your secret PIN
+  const ALLOWED_DOMAINS = ["hoover.k12.al.us" , "hcs-students.net"]; // Add allowed domains here
+  const TEACHER_PIN = "7325";             // Change to your secret PIN
 
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
