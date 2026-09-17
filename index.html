@@ -122,26 +122,24 @@
     </div>
   </div>
 
-  <script type="module">
+ <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
     import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
-    // 1. Paste your Firebase credentials here
- // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
-  apiKey: "AIzaSyBPXtwEmQIMKF_O7JOAs6kSZ1vMPTlJEUs",
-  authDomain: "virtual-roundtable.firebaseapp.com",
-  databaseURL: "https://virtual-roundtable-default-rtdb.firebaseio.com",
-  projectId: "virtual-roundtable",
-  storageBucket: "virtual-roundtable.firebasestorage.app",
-  messagingSenderId: "708274108711",
-  appId: "1:708274108711:web:0a4aed1f460cfb0774d102",
-  measurementId: "G-7GD69G60BZ"
-};
+    // 1. Paste YOUR actual Firebase config values here:
+    const firebaseConfig = {
+      apiKey: "YOUR_REAL_API_KEY",
+      authDomain: "YOUR_PROJECT.firebaseapp.com",
+      databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+      projectId: "YOUR_PROJECT",
+      storageBucket: "YOUR_PROJECT.appspot.com",
+      messagingSenderId: "123456789",
+      appId: "1:123456789:web:abcdef"
+    };
 
-    const ALLOWED_DOMAIN = "hoover.k12.al.us"; // Replace with your school domain (e.g., "k12.sd.us")
-    const TEACHER_PIN = "7325";          // Replace with your preferred Teacher Passcode
+    const ALLOWED_DOMAIN = ""; // Set to "" to test all domains, or "school.org" to restrict
+    const TEACHER_PIN = "1234";
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
@@ -152,14 +150,12 @@ const firebaseConfig = {
     let currentPeriod = "1";
     let globalPostsData = {};
 
-    // Ordinal suffix helper for period titles (1st, 2nd, 3rd, etc.)
     function getOrdinal(n) {
       const s = ["th", "st", "nd", "rd"];
       const v = n % 100;
       return n + (s[(v - 20) % 10] || s[v] || s[0]);
     }
 
-    // Elements
     const authSection = document.getElementById('auth-section');
     const appSection = document.getElementById('app-section');
     const loginBtn = document.getElementById('google-login-btn');
@@ -167,16 +163,20 @@ const firebaseConfig = {
     const userDisplayName = document.getElementById('user-display-name');
     const periodSelect = document.getElementById('period-select');
 
-    // Authentication Handlers
+    // Login Event Handler with Error Alerting
     loginBtn.addEventListener('click', () => {
-      signInWithPopup(auth, provider).catch(err => alert("Sign-in failed: " + err.message));
+      signInWithPopup(auth, provider)
+        .catch(err => {
+          console.error("Firebase Login Error:", err);
+          alert(`Sign-in Error [${err.code}]: ${err.message}`);
+        });
     });
 
     logoutBtn.addEventListener('click', () => signOut(auth));
 
     onAuthStateChanged(auth, (user) => {
       if (user) {
-        if (ALLOWED_DOMAIN && !user.email.endsWith("@" + ALLOWED_DOMAIN)) {
+        if (ALLOWED_DOMAIN !== "" && !user.email.endsWith("@" + ALLOWED_DOMAIN)) {
           alert(`Access restricted! You must sign in using your @${ALLOWED_DOMAIN} email.`);
           signOut(auth);
           return;
@@ -194,13 +194,11 @@ const firebaseConfig = {
       }
     });
 
-    // Period Selection Switching
     periodSelect.addEventListener('change', (e) => {
       currentPeriod = e.target.value;
       loadPeriodData(currentPeriod);
     });
 
-    // Alias Generator
     const adjectives = ["Analytical", "Curious", "Socratic", "Reflective", "Logical", "Insightful", "Empirical"];
     const figures = ["Archimedes", "Curie", "Galileo", "Hypatia", "Aristotle", "Turing", "Newton", "Descartes"];
 
@@ -210,7 +208,6 @@ const firebaseConfig = {
       return `${adj} ${fig}`;
     }
 
-    // Load Realtime Data for Selected Period
     function loadPeriodData(period) {
       const periodName = `${getOrdinal(period)} Period`;
       document.getElementById('feed-title').textContent = `Live Feed — ${periodName}`;
@@ -274,7 +271,6 @@ const firebaseConfig = {
       });
     }
 
-    // Submit New Thread
     const postForm = document.getElementById('post-form');
     postForm.addEventListener('submit', (e) => {
       e.preventDefault();
@@ -296,7 +292,6 @@ const firebaseConfig = {
       }).catch(err => alert("Error posting: " + err.message));
     });
 
-    // Submit Reply
     function handlePeerReply(e) {
       e.preventDefault();
       const form = e.target;
@@ -318,7 +313,6 @@ const firebaseConfig = {
       }).catch(err => alert("Error posting reply: " + err.message));
     }
 
-    // Teacher Admin Modal & Roster
     const modal = document.getElementById('teacher-modal');
     const openBtn = document.getElementById('open-teacher-btn');
     const closeBtn = document.getElementById('close-modal-btn');
