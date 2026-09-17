@@ -44,15 +44,18 @@
           <button id="logout-btn" class="text-xs text-red-600 hover:underline">Sign Out</button>
         </div>
 
-        <!-- Class Period Selector -->
+        <!-- Class Period Selector (1st - 8th) -->
         <div class="flex items-center gap-2">
           <label for="period-select" class="text-sm font-bold text-slate-700">Class Period:</label>
           <select id="period-select" class="p-2 border border-slate-300 rounded-lg bg-white font-semibold text-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:outline-none shadow-sm">
-            <option value="period_1">Period 1</option>
-            <option value="period_2">Period 2</option>
-            <option value="period_3">Period 3</option>
-            <option value="period_4">Period 4</option>
-            <option value="period_5">Period 5</option>
+            <option value="1">1st Period</option>
+            <option value="2">2nd Period</option>
+            <option value="3">3rd Period</option>
+            <option value="4">4th Period</option>
+            <option value="5">5th Period</option>
+            <option value="6">6th Period</option>
+            <option value="7">7th Period</option>
+            <option value="8">8th Period</option>
           </select>
         </div>
       </div>
@@ -99,7 +102,7 @@
       <!-- Roster View -->
       <div id="roster-view" class="hidden space-y-4">
         <div class="flex justify-between items-center">
-          <span class="text-sm font-bold text-indigo-700" id="roster-period-label">Roster for Period 1</span>
+          <span class="text-sm font-bold text-indigo-700" id="roster-period-label">Roster for 1st Period</span>
         </div>
         <div class="max-h-80 overflow-y-auto">
           <table class="w-full text-sm text-left text-slate-600">
@@ -135,8 +138,8 @@
       appId: "1:123456789:web:abcdef"
     };
 
-    const ALLOWED_DOMAIN = "hoover.k12.al.us"; // Replace with your school domain (e.g., "k12.sd.us")
-    const TEACHER_PIN = "7325";          // Replace with your preferred Teacher Passcode
+    const ALLOWED_DOMAIN = "school.org"; // Replace with your school domain (e.g., "k12.sd.us")
+    const TEACHER_PIN = "1234";          // Replace with your preferred Teacher Passcode
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
@@ -144,9 +147,15 @@
     const provider = new GoogleAuthProvider();
 
     let currentUser = null;
-    let currentPeriod = "period_1";
+    let currentPeriod = "1";
     let globalPostsData = {};
-    let unsubscribeListener = null;
+
+    // Ordinal suffix helper for period titles (1st, 2nd, 3rd, etc.)
+    function getOrdinal(n) {
+      const s = ["th", "st", "nd", "rd"];
+      const v = n % 100;
+      return n + (s[(v - 20) % 10] || s[v] || s[0]);
+    }
 
     // Elements
     const authSection = document.getElementById('auth-section');
@@ -165,7 +174,6 @@
 
     onAuthStateChanged(auth, (user) => {
       if (user) {
-        // Enforce School Domain Restriction
         if (ALLOWED_DOMAIN && !user.email.endsWith("@" + ALLOWED_DOMAIN)) {
           alert(`Access restricted! You must sign in using your @${ALLOWED_DOMAIN} email.`);
           signOut(auth);
@@ -202,8 +210,9 @@
 
     // Load Realtime Data for Selected Period
     function loadPeriodData(period) {
-      document.getElementById('feed-title').textContent = `Live Feed — Period ${period.split('_')[1]}`;
-      const periodRef = ref(db, `periods/${period}/posts`);
+      const periodName = `${getOrdinal(period)} Period`;
+      document.getElementById('feed-title').textContent = `Live Feed — ${periodName}`;
+      const periodRef = ref(db, `periods/period_${period}/posts`);
 
       onValue(periodRef, (snapshot) => {
         const container = document.getElementById('posts-container');
@@ -213,7 +222,7 @@
         globalPostsData = data || {};
 
         if (!data) {
-          container.innerHTML = `<div class="text-center py-8 text-slate-400">No posts in Period ${period.split('_')[1]} yet.</div>`;
+          container.innerHTML = `<div class="text-center py-8 text-slate-400">No posts in ${periodName} yet.</div>`;
           return;
         }
 
@@ -271,7 +280,7 @@
       const content = document.getElementById('post-content').value.trim();
       if (!content || !currentUser) return;
 
-      const postsRef = ref(db, `periods/${currentPeriod}/posts`);
+      const postsRef = ref(db, `periods/period_${currentPeriod}/posts`);
 
       push(postsRef, {
         realName: currentUser.displayName,
@@ -295,7 +304,7 @@
 
       if (!commentText || !currentUser) return;
 
-      const repliesRef = ref(db, `periods/${currentPeriod}/posts/${postId}/replies`);
+      const repliesRef = ref(db, `periods/period_${currentPeriod}/posts/${postId}/replies`);
 
       push(repliesRef, {
         alias: generateAlias(),
@@ -336,7 +345,7 @@
     });
 
     function renderRoster() {
-      document.getElementById('roster-period-label').textContent = `Roster for Period ${currentPeriod.split('_')[1]}`;
+      document.getElementById('roster-period-label').textContent = `Roster for ${getOrdinal(currentPeriod)} Period`;
       rosterTbody.innerHTML = '';
       if (!globalPostsData) return;
 
