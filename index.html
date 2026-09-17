@@ -10,9 +10,16 @@
 
   <div class="max-w-4xl mx-auto space-y-8">
     
-    <header class="text-center space-y-2">
-      <h1 class="text-3xl font-extrabold text-slate-900">Classroom Roundtable</h1>
-      <p class="text-slate-600">Share your thoughts anonymously. Be constructive and respectful in peer reviews.</p>
+    <!-- Top Bar with Admin Toggle -->
+    <header class="flex flex-col sm:flex-row justify-between items-center gap-4 border-b border-slate-200 pb-4">
+      <div class="text-center sm:text-left">
+        <h1 class="text-3xl font-extrabold text-slate-900">Classroom Roundtable</h1>
+        <p class="text-slate-600 text-sm">Share your thoughts anonymously. Be constructive and respectful.</p>
+      </div>
+      <!-- Teacher View Access Button -->
+      <button id="open-teacher-btn" class="bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors shadow">
+        🔒 Teacher Admin
+      </button>
     </header>
 
     <!-- Create Post Form -->
@@ -41,21 +48,57 @@
 
   </div>
 
+  <!-- Teacher View Password Modal -->
+  <div id="teacher-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+    <div class="bg-white max-w-lg w-full rounded-xl shadow-2xl p-6 space-y-4 border border-slate-200">
+      <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+        <h3 class="text-lg font-bold text-slate-900">🔒 Teacher View Access</h3>
+        <button id="close-modal-btn" class="text-slate-400 hover:text-slate-600 text-lg font-bold">&times;</button>
+      </div>
+
+      <!-- Password Prompt View -->
+      <div id="pin-view" class="space-y-4">
+        <p class="text-sm text-slate-600">Enter your passcode to unlock student name mappings for grading.</p>
+        <input type="password" id="teacher-pin" placeholder="Enter PIN (Default: 1234)" class="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+        <button id="unlock-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded-lg transition-colors">Unlock View</button>
+      </div>
+
+      <!-- Roster Roster Mapping View -->
+      <div id="roster-view" class="hidden space-y-4">
+        <div class="max-h-80 overflow-y-auto">
+          <table class="w-full text-sm text-left text-slate-600">
+            <thead class="text-xs text-slate-700 uppercase bg-slate-100 sticky top-0">
+              <tr>
+                <th class="px-4 py-2">Generated Alias</th>
+                <th class="px-4 py-2">Real Name</th>
+              </tr>
+            </thead>
+            <tbody id="roster-tbody" class="divide-y divide-slate-200">
+              <!-- Roster rows populate dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-   // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
-  apiKey: "AIzaSyBPXtwEmQIMKF_O7JOAs6kSZ1vMPTlJEUs",
-  authDomain: "virtual-roundtable.firebaseapp.com",
-  databaseURL: "https://virtual-roundtable-default-rtdb.firebaseio.com",
-  projectId: "virtual-roundtable",
-  storageBucket: "virtual-roundtable.firebasestorage.app",
-  messagingSenderId: "708274108711",
-  appId: "1:708274108711:web:0a4aed1f460cfb0774d102",
-  measurementId: "G-7GD69G60BZ"
-};
+    // Replace with your Firebase project keys from Project Settings
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT.firebaseapp.com",
+      databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+      projectId: "YOUR_PROJECT",
+      storageBucket: "YOUR_PROJECT.appspot.com",
+      messagingSenderId: "123456789",
+      appId: "1:123456789:web:abcdef"
+    };
+
+    // Teacher Security PIN
+    const TEACHER_PIN = "1234"; // <-- CHANGE THIS TO YOUR DESIRED TEACHER PASSWORD
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
@@ -69,6 +112,8 @@ const firebaseConfig = {
       const fig = figures[Math.floor(Math.random() * figures.length)];
       return `${adj} ${fig}`;
     }
+
+    let globalPostsData = {};
 
     const postForm = document.getElementById('post-form');
     postForm.addEventListener('submit', (e) => {
@@ -96,6 +141,8 @@ const firebaseConfig = {
       container.innerHTML = '';
 
       const data = snapshot.val();
+      globalPostsData = data || {};
+
       if (!data) {
         container.innerHTML = `<div class="text-center py-8 text-slate-400">No discussion posts yet. Be the first to post!</div>`;
         return;
@@ -167,6 +214,52 @@ const firebaseConfig = {
       }).then(() => {
         input.value = '';
       }).catch(err => alert("Error posting reply: " + err.message));
+    }
+
+    // Modal Control & Teacher Passcode Authentication
+    const modal = document.getElementById('teacher-modal');
+    const openBtn = document.getElementById('open-teacher-btn');
+    const closeBtn = document.getElementById('close-modal-btn');
+    const unlockBtn = document.getElementById('unlock-btn');
+    const pinInput = document.getElementById('teacher-pin');
+    const pinView = document.getElementById('pin-view');
+    const rosterView = document.getElementById('roster-view');
+    const rosterTbody = document.getElementById('roster-tbody');
+
+    openBtn.addEventListener('click', () => {
+      modal.classList.remove('hidden');
+    });
+
+    closeBtn.addEventListener('click', () => {
+      modal.classList.add('hidden');
+      pinInput.value = '';
+      pinView.classList.remove('hidden');
+      rosterView.classList.add('hidden');
+    });
+
+    unlockBtn.addEventListener('click', () => {
+      if (pinInput.value === TEACHER_PIN) {
+        pinView.classList.add('hidden');
+        rosterView.classList.remove('hidden');
+        renderRoster();
+      } else {
+        alert("Incorrect PIN.");
+      }
+    });
+
+    function renderRoster() {
+      rosterTbody.innerHTML = '';
+      if (!globalPostsData) return;
+
+      Object.values(globalPostsData).forEach(post => {
+        const row = document.createElement('tr');
+        row.className = "hover:bg-slate-50";
+        row.innerHTML = `
+          <td class="px-4 py-2.5 font-semibold text-indigo-600">${escapeHtml(post.alias)}</td>
+          <td class="px-4 py-2.5 text-slate-900">${escapeHtml(post.realName)}</td>
+        `;
+        rosterTbody.appendChild(row);
+      });
     }
 
     function escapeHtml(str) {
