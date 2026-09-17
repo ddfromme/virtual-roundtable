@@ -140,7 +140,8 @@ const firebaseConfig = {
   measurementId: "G-7GD69G60BZ"
 };
 
-    const ALLOWED_DOMAIN = ""; // Set to "" to test all domains, or "school.org" to restrict
+   // Replace the old string with an array of allowed domains (without @)
+const ALLOWED_DOMAINS = ["hoover.k12.al.us", "hcs-students.net"];
     const TEACHER_PIN = "7325";
 
     const app = initializeApp(firebaseConfig);
@@ -176,10 +177,13 @@ const firebaseConfig = {
 
     logoutBtn.addEventListener('click', () => signOut(auth));
 
-    onAuthStateChanged(auth, (user) => {
+   onAuthStateChanged(auth, (user) => {
       if (user) {
-        if (ALLOWED_DOMAIN !== "" && !user.email.endsWith("@" + ALLOWED_DOMAIN)) {
-          alert(`Access restricted! You must sign in using your @${ALLOWED_DOMAIN} email.`);
+        // Check if user email ends with any allowed domain in the list
+        const isAllowed = ALLOWED_DOMAINS.length === 0 || ALLOWED_DOMAINS.some(domain => user.email.endsWith("@" + domain));
+
+        if (!isAllowed) {
+          alert(`Access restricted! Your email (@${user.email.split('@')[1]}) is not authorized to access this board.`);
           signOut(auth);
           return;
         }
